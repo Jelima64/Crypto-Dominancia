@@ -1,0 +1,42 @@
+import requests
+import json
+import datetime
+import os
+
+def obter_dominancia_bitcoin():
+    try:
+        url = "https://api.coinmarketcap.com/data-api/v3/global-metrics/quotes/latest"
+        headers = {
+            'Accepts': 'application/json',
+            'X-CMC_PRO_API_KEY': os.environ.get("COINMARKETCAP_API_KEY"), # Use uma variável de ambiente para a chave da API
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Lança uma exceção para erros HTTP
+        data = response.json()
+        dominancia = data['data']['btcDominance']
+        return dominancia
+    except requests.exceptions.RequestException as e:
+        print(f"Erro na requisição: {e}")
+        return None
+    except (KeyError, TypeError) as e:
+      print(f"Erro ao processar os dados da API: {e}")
+      return None
+
+def salvar_em_arquivo(dominancia):
+    data_atual = datetime.datetime.now().strftime("%Y-%m-%d")
+    nome_arquivo = "dominancia_bitcoin.txt"
+    try:
+        with open(nome_arquivo, "a") as arquivo:  # Abre o arquivo em modo de adição
+            arquivo.write(f"{data_atual}: {dominancia:.2f}%\n")
+        print(f"Dominância salva em {nome_arquivo}")
+    except Exception as e:
+        print(f"Erro ao salvar no arquivo: {e}")
+
+def main():
+    dominancia = obter_dominancia_bitcoin()
+    if dominancia is not None:
+        print(f"A dominância do Bitcoin hoje é: {dominancia:.2f}%")
+        salvar_em_arquivo(dominancia)
+
+if __name__ == "__main__":
+    main()
