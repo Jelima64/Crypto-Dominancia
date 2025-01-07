@@ -1,0 +1,97 @@
+import requests
+import json
+import datetime
+import os
+import matplotlib.pyplot as plt
+
+def obter_dominancia_bitcoin():
+    try:
+        url = "https://api.coinmarketcap.com/data-api/v3/global-metrics/quotes/latest"
+        headers = {
+            'Accepts': 'application/json',
+            'X-CMC_PRO_API_KEY': os.environ.get("COINMARKETCAP_API_KEY"),
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        dominancia = data['data']['btcDominance']
+        return dominancia
+    except requests.exceptions.RequestException as e:
+        print(f"Erro na requisição: {e}")
+        return None
+    except (KeyError, TypeError) as e:
+        print(f"Erro ao processar os dados da API: {e}")
+        return None
+
+def analisar_dominancia(dominancia):
+    if dominancia is None:
+        return "Erro ao obter dados de dominância."
+    elif dominancia > 49.99:
+        return "Bitcoin Season"
+    elif 40 < dominancia <= 49.99:
+        return "Altcoin Season - Acompanhe as Altcoins."
+    elif dominancia <= 40:
+        return "Cuidado! Possível final da Altcoin Season."
+    else:
+        return "Valor de dominância fora do intervalo esperado."
+
+def gerar_grafico(dados):
+    if not dados:
+        print("Sem dados para gerar o gráfico.")
+        return
+
+    datas = [data for data, _, _ in dados]
+    dominancias = [dominancia for _, dominancia, _ in dados]
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(datas, dominancias, marker='o')
+    plt.xlabel("Data")
+    plt.ylabel("Dominância do Bitcoin (%)")
+    plt.title("Histórico da Dominância do Bitcoin")
+    plt.grid(True)
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig("grafico_dominancia.png")
+    plt.show()
+
+def salvar_em_arquivo(dominancia, mensagem):
+    data_atual = datetime.datetime.now().strftime("%Y-%m-%d")
+    nome_arquivo = "dominancia_bitcoin.txt"
+    dados = []
+
+    try:
+        with open(nome_arquivo, "r") as arquivo:
+            for linha in arquivo:
+                try:
+                    data, resto = linha.split(": ", 1)
+                    dominancia_str, mensagem_str = resto.split(" - ", 1)
+                    dominancia_num = float(dominancia_str.replace("%", ""))
+                    dados.append((data, dominancia_num, mensagem_str.strip()))
+                except ValueError:  # Trata erros de formato nas linhas do arquivo
+                    print(f"Linha ignorada devido a formato incorreto: {linha.strip()}")
+                    continue #Pula para a próxima linha
+
+    except FileNotFoundError:
+        pass  # Ignora se o arquivo não existir
+
+    dados.append((data_atual, dominancia, mensagem))
+
+    try:
+        with open(nome_arquivo, "w") as arquivo: # Abre o arquivo em modo de escrita, sobrescrevendo o conteúdo anterior
+            for data, dom, msg in dados:
+                arquivo.write(f"{data}: {dom:.2f}% - {msg}\n")
+        print(f"Dominância e análise salvas em {nome_arquivo}")
+    except Exception as e:
+        print(f"Erro ao salvar no arquivo: {e}")
+    gerar_grafico(dados)
+
+def main():
+    dominancia = obter_dominancia_bitcoin()
+    if dominancia is not None:
+        mensagem_analise = analisar_dominancia(dominancia)
+        print(f"A dominância do Bitcoin hoje é: {dominancia:.2f}%")
+        print(f"Análise: {mensagem_analise}")
+        salvar_em_arquivo(dominancia, mensagem_analise)
+
+if __name__ == "__main__":
+    main()
